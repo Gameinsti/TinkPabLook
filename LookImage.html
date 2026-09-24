@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<title>Calcar en pantalla</title>
+
+<style>
+    * {
+        box-sizing: border-box;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+
+    html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #222;
+        font-family: Arial, sans-serif;
+        touch-action: none;
+    }
+
+    /* Barra de controles */
+    #controles {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        z-index: 100;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    button, label {
+        border: none;
+        border-radius: 10px;
+        padding: 12px 16px;
+        background: #fff;
+        color: #111;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 2px 8px #0008;
+    }
+
+    button:active, label:active {
+        transform: scale(0.95);
+    }
+
+    #archivo {
+        display: none;
+    }
+
+    /* Zona donde aparece la imagen */
+    #zona {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        position: relative;
+    }
+
+    #imagen {
+        max-width: 90vw;
+        max-height: 85vh;
+        object-fit: contain;
+
+        transform: scale(1);
+        transform-origin: center center;
+
+        pointer-events: none;
+    }
+
+    /* Pantalla de bloqueo */
+    #bloqueo {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        background: transparent;
+        touch-action: none;
+    }
+
+    #mensajeBloqueo {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+
+        background: rgba(0,0,0,0.75);
+        color: white;
+        padding: 10px 18px;
+        border-radius: 20px;
+
+        font-size: 14px;
+        pointer-events: none;
+    }
+
+    .oculto {
+        display: none !important;
+    }
+</style>
+</head>
+
+<body>
+
+<div id="controles">
+
+    <label for="archivo">
+        📷 Subir imagen
+    </label>
+
+    <input type="file" id="archivo" accept="image/*">
+
+    <button onclick="aumentar()">➕</button>
+    <button onclick="reducir()">➖</button>
+    <button onclick="tamanoNormal()">100%</button>
+
+    <button onclick="bloquear()" id="botonBloquear">
+        🔒 Bloquear
+    </button>
+
+</div>
+
+<div id="zona">
+    <img id="imagen" alt="Imagen">
+</div>
+
+<!-- Capa que bloquea todos los toques -->
+<div id="bloqueo">
+    <div id="mensajeBloqueo">
+        🔒 20 toques para desbloquear
+    </div>
+</div>
+
+<script>
+
+const archivo = document.getElementById("archivo");
+const imagen = document.getElementById("imagen");
+const bloqueo = document.getElementById("bloqueo");
+const controles = document.getElementById("controles");
+
+let escala = 1;
+let bloqueada = false;
+
+// -------------------------
+// SUBIR IMAGEN
+// -------------------------
+
+archivo.addEventListener("change", function () {
+
+    const fichero = this.files[0];
+
+    if (!fichero) return;
+
+    const lector = new FileReader();
+
+    lector.onload = function(e) {
+        imagen.src = e.target.result;
+
+        escala = 1;
+        actualizarImagen();
+    };
+
+    lector.readAsDataURL(fichero);
+});
+
+
+// -------------------------
+// ZOOM
+// -------------------------
+
+function aumentar() {
+
+    escala += 0.1;
+
+    if (escala > 5) {
+        escala = 5;
+    }
+
+    actualizarImagen();
+}
+
+
+function reducir() {
+
+    escala -= 0.1;
+
+    if (escala < 0.1) {
+        escala = 0.1;
+    }
+
+    actualizarImagen();
+}
+
+
+function tamanoNormal() {
+
+    escala = 1;
+
+    actualizarImagen();
+}
+
+
+function actualizarImagen() {
+
+    imagen.style.transform = `scale(${escala})`;
+
+}
+
+
+// -------------------------
+// BLOQUEAR
+// -------------------------
+
+function bloquear() {
+
+    bloqueada = true;
+
+    bloqueo.style.display = "block";
+
+    // Ocultamos los controles para que nada pueda tocarse
+    controles.classList.add("oculto");
+
+}
+
+
+// -------------------------
+// DESBLOQUEAR
+// -------------------------
+
+function desbloquear() {
+
+    bloqueada = false;
+
+    bloqueo.style.display = "none";
+
+    controles.classList.remove("oculto");
+
+}
+
+
+// ESC para desbloquear en ordenador
+document.addEventListener("keydown", function(e) {
+
+    if (e.key === "Escape" && bloqueada) {
+        desbloquear();
+    }
+
+});
+
+
+// -------------------------
+// 3 TOQUES PARA DESBLOQUEAR
+// -------------------------
+
+let toques = 0;
+let ultimoToque = 0;
+
+bloqueo.addEventListener("pointerdown", function(e) {
+
+    e.preventDefault();
+
+    const ahora = Date.now();
+
+    if (ahora - ultimoToque > 1000) {
+        toques = 0;
+    }
+
+    toques++;
+    ultimoToque = ahora;
+
+    if (toques >= 20) {
+        toques = 0;
+        desbloquear();
+    }
+
+}, { passive: false });
+
+
+// Evitar gestos del navegador mientras está bloqueado
+bloqueo.addEventListener("touchmove", function(e) {
+    e.preventDefault();
+}, { passive: false });
+
+bloqueo.addEventListener("touchstart", function(e) {
+    e.preventDefault();
+}, { passive: false });
+
+</script>
+
+</body>
+</html>
